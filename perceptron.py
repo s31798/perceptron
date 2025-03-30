@@ -1,5 +1,10 @@
 import math
 import random
+import sys
+
+from matplotlib import pyplot as plt
+
+
 class Perceptron:
     def __init__(self, learning_rate):
         self.learning_rate = learning_rate
@@ -12,6 +17,7 @@ class Perceptron:
         self.vec_length = None
         self.d = None
         self.n = 0
+        self.labels = {}
 
     @staticmethod
     def load_data_from_file(file_name):
@@ -36,13 +42,7 @@ class Perceptron:
 
     def open_training_data(self, file_name):
         self.x_train,self.y_train, self.n = Perceptron.load_data_from_file(file_name)
-        self.d = []
-        for i in range(len(self.y_train)):
-            if self.y_train[i] == self.y_train[0]:
-                self.d.append(1)
-            else:
-                self.d.append(0)
-
+        self.d = self.format_data(self.y_train)
         self.vec_length = len(self.x_train[0])
         self.weights = [random.uniform(0, 1) for _ in range(self.vec_length)]
 
@@ -52,13 +52,16 @@ class Perceptron:
             return [x / norm for x in vec] if norm != 0 else vec
 
 
-    def format_data(self):
-        self.d = []
-        for i in range(len(self.y_train)):
-            if self.y_train[i] == self.y_train[0]:
-                self.d.append(1)
+    def format_data(self,y_data):
+        d = []
+        for i in range(len(y_data)):
+            if y_data[i] == y_data[0]:
+                d.append(1)
+                self.labels[1] = y_data[i]
             else:
-                self.d.append(0)
+                d.append(0)
+                self.labels[0] = y_data[i]
+        return d
 
     def open_test_data(self, file_name):
         self.x_test, self.y_test, _= Perceptron.load_data_from_file(file_name)
@@ -81,34 +84,63 @@ class Perceptron:
         self.bias = self.bias - self.learning_rate * (d - y)
         return y
 
-    def get_training_accuracy(self):
+    def get_accuracy(self, x_data, y_data):
         correct = 0
-        for i in range(self.n):
-            if self.d[i] == self.predict(self.x_train[i]):
+        for i in range(len(x_data)):
+            if y_data[i] == self.predict(x_data[i]):
                 correct += 1
-        return correct / self.n
-
-
+        return correct / len(x_data)
 
     def learn(self, epochs):
+        accuracies = []
         for i in range(epochs):
             iteration_error = 0
             for j in range(len(self.x_train)):
                 y = self.update_weights(self.x_train[j], self.d[j])
                 iteration_error += (self.d[j] - y) ** 2
             iteration_error = iteration_error / self.n
-            ##print(self.weights)
+            accuracy = self.get_accuracy(self.x_train, self.d)
+            accuracies.append(accuracy)
             if i % 100 == 0:
-                print(f'epoch: {i}, error: {iteration_error}')
-                print(f'accuracy {self.get_training_accuracy()}')
+                print(f'epoch: {i}, weights: {self.weights}, bias: {self.bias}')
+                print(f'accuracy {accuracy}')
+        return accuracies
 
 
+    def eval(self):
+        print(f'test accuracy {self.get_accuracy(self.x_test, p.format_data(self.y_test))}')
 
+args = sys.argv
+if len(args) != 3 and len(args) != 4:
+    raise Exception("Wrong number of arguments")
 
-p = Perceptron(learning_rate=0.01)
+learning_rate = float(args[1])
+epochs = int(args[2])
+
+p = Perceptron(learning_rate)
 print(p.weights)
 p.open_training_data("perceptron.data")
 p.open_test_data("perceptron.test.data")
 print(p.x_train)
 print(p.d)
-p.learn(epochs=1000)
+p.eval()
+accuracies = p.learn(epochs)
+p.eval()
+if len(args) == 4 and args[3] == "graph":
+    plt.plot([i for i in range(epochs)], accuracies)
+    plt.xlabel("Epoch")
+    plt.ylabel("Accuracy")
+    plt.title("Train accuracy after n Epochs")
+    plt.show()
+else:
+    while(True):
+            vec = input(f'enter a {p.vec_length}-dimensional vector to label, in the format 1,3,3,...: ').strip().split(',')
+
+            if len(vec) != p.vec_length:
+                print("wrong vector length")
+                break
+            try:
+                vec = list(map(float, vec))
+                print(p.labels.get(p.predict(vec)))
+            except Exception:
+                print("please enter a valid vector")
